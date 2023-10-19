@@ -9,6 +9,7 @@ import concurrent.futures.thread
 import datetime
 import shutil
 
+config_file_name = '.mqd.config'
 config = configparser.ConfigParser()
 _actions = ['snapshot', 'restore', 'help', 'list', 'delete']
 _alias = {
@@ -197,7 +198,7 @@ def run_mysql(args, bin=None, callback=None):
 
 
 def read_config():
-    config_path = os.path.join(os.getcwd(), 'config')
+    config_path = os.path.join(os.getcwd(), config_file_name)
 
     if not os.path.isfile(config_path):
         raise NameError('config file not found : ' + config_path)
