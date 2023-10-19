@@ -1,0 +1,210 @@
+#!/usr/bin/python
+
+import time
+import sys
+import os
+import configparser
+import subprocess
+import concurrent.futures.thread
+import datetime
+import shutil
+
+config = configparser.ConfigParser()
+_actions = ['snapshot', 'restore', 'help', 'list', 'delete']
+_alias = {
+    's': 'snapshot',
+    'r': 'restore',
+    'd': 'delete',
+    'l': 'list',
+}
+
+def main():
+    cwd = os.getcwd()
+    #print('Working directory : ' + cwd)
+
+    read_config()
+
+    if len(sys.argv) <= 1:
+        print('No argument...')
+        help()
+        return
+
+    action = sys.argv[1]
+
+    if action in _actions:
+        start = time.time()
+
+        func = globals()[action]
+        func()
+
+        end = time.time()
+        print(" ")
+        print("--- {:.4f} seconds ---".format(end - start))
+        return
+
+
+def snapshot():
+    if len(sys.argv) <= 2:
+        raise NameError('Please give a snapshot name...\n> mqd snapshot NAME')
+        return
+
+    name = sys.argv[2]
+
+    dir = config['options']['output-dir'] or os.path.join(os.getcwd(), 'dumps')
+
+    snapshot_dir = os.path.join(dir, name)
+
+    if not os.path.exists(snapshot_dir):
+        os.makedirs(snapshot_dir)
+
+    print('Output dir: ' + dir)
+    print('Snapshot: ' + snapshot_dir)
+
+    database = config['database']['database']
+    tables = run_mysql([
+            '--skip-column-names',
+            '-e"SELECT table_name FROM information_schema.tables WHERE table_schema = \'' + database + '\'"'
+        ],
+        callback=lambda out, err: list(filter(None, out.decode().split('\r\n'))),
+        bin=config['options']['mysql-bin']
+    )
+
+    # remove skipped tables
+    skipped_tables = config['options']['skip-tables'].split(',') or []
+    for t in skipped_tables:
+        tables.remove(t)
+
+    with concurrent.futures.thread.ThreadPoolExecutor(max_workers=int(config['options']['snapshot-sub-process-max'] or 1)) as e:
+        for table in tables:
+            e.submit(dump_table, database, table, snapshot_dir)
+
+    print('DONE')
+
+
+def restore():
+    if len(sys.argv) <= 2:
+        raise NameError('Please provide the name of the snapshot...\n> mqd restore NAME')
+        return
+
+    name = sys.argv[2]
+
+    dir = config['options']['output-dir'] or os.path.join(os.getcwd(), 'dumps')
+
+    snapshot_dir = os.path.join(dir, name)
+
+    if not os.path.exists(snapshot_dir):
+        raise NameError('snapshot not found : ' + snapshot_dir)
+
+
+    print('Snapshot: ' + snapshot_dir)
+
+    database = config['database']['database']
+
+    # retrieve all files to restore
+    files = []
+    for path in os.listdir(snapshot_dir):
+        # check if current path is a file
+        if os.path.isfile(os.path.join(snapshot_dir, path)):
+            files.append(os.path.join(snapshot_dir, path))
+
+    with concurrent.futures.thread.ThreadPoolExecutor(max_workers=int(config['options']['restore-sub-process-max'] or 5)) as e:
+        for dump_file in files:
+            e.submit(restore_table, database, dump_file)
+
+    print('DONE')
+
+
+def list():
+    dir = config['options']['output-dir'] or os.path.join(os.getcwd(), 'dumps')
+
+    print(' ')
+    print('SNAPSHOTS:')
+    print("==========")
+    snapshots = {}
+    for path in os.listdir(dir):
+        # check if current path is a file
+        if os.path.isdir(os.path.join(dir, path)):
+            created_at = os.stat(os.path.join(dir, path)).st_ctime
+            snapshots[datetime.datetime.fromtimestamp(created_at).strftime('%Y-%m-%d %H:%M:%S')] = path
+
+    ss = sorted(snapshots.items())
+    for (date, snapshot) in ss:
+        print(' ' + date + '\t' + snapshot)
+
+
+def delete():
+    if len(sys.argv) <= 2:
+        raise NameError('Please give a snapshot name...\n> mqd delete NAME')
+        return
+
+    name = sys.argv[2]
+
+    dir = config['options']['output-dir'] or os.path.join(os.getcwd(), 'dumps')
+
+    snapshot_dir = os.path.join(dir, name)
+
+    if not os.path.exists(snapshot_dir):
+        raise NameError('snapshot doesn\'t exists')
+
+    shutil.rmtree(snapshot_dir)
+
+    print('snapshot deleted !')
+
+def dump_table(database, table, snapshot_dir):
+    run_mysql([
+            database,
+            table,
+            '> ' + os.path.join(snapshot_dir, database + '_' + table + '.sql')
+        ],
+        bin=config['options']['mysql-dump-bin']
+    )
+    print('table dumped: ' + table)
+
+
+def restore_table(database, dump_file):
+    print('restoring: ' + dump_file)
+    run_mysql([
+            database,
+            '< ' + dump_file
+        ],
+        bin=config['options']['mysql-bin']
+    )
+    print('restored: ' + dump_file)
+
+
+def help():
+    print('help : use command snapshot or restore')
+
+
+def run_mysql(args, bin=None, callback=None):
+    _args = [
+        '-h' + config['database']['host'] or 'localhost',
+        '-P' + config['database']['port'] or 3306,
+        '-u' + config['database']['user'],
+        '-p' + config['database']['password'],
+    ]
+    args = _args + args
+    command = bin + ' ' + ' '.join(args)
+
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+    out, err = p.communicate()
+
+
+    if callback is not None:
+        return callback(out, err)
+
+    return out
+
+
+def read_config():
+    config_path = os.path.join(os.getcwd(), 'config')
+
+    if not os.path.isfile(config_path):
+        raise NameError('config file not found : ' + config_path)
+
+    #print('Config file: ' + config_path)
+    config.read(config_path)
+
+
+if __name__ == "__main__":
+    main()

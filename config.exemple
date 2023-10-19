@@ -1,0 +1,10 @@
+[database]
+host=
+database=
+user=
+password=
+
+[options]
+output-dir=
+mysql-dump-opt=
+skip-tables=
