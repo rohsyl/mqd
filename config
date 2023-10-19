@@ -1,7 +1,0 @@
-database=coucouapp
-user=root
-password=
-
-output-dir=
-mysql-dump-opt=
-skip-tables=
