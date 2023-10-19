@@ -41,7 +41,7 @@ mqd restore NAME
 
 ## See availables snapshot
 ```
-mqd list
+mqd ls
 ```
 
 ## Delete a snapshot

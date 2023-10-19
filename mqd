@@ -11,12 +11,14 @@ import shutil
 
 config_file_name = '.mqd.config'
 config = configparser.ConfigParser()
-_actions = ['snapshot', 'restore', 'help', 'list', 'delete']
+_actions = ['snapshot', 'restore', 'help', 'ls', 'delete']
 _alias = {
     's': 'snapshot',
     'r': 'restore',
     'd': 'delete',
-    'l': 'list',
+    'rm': 'delete',
+    'remove': 'delete',
+    'l': 'ls',
 }
 
 def main():
@@ -31,6 +33,9 @@ def main():
         return
 
     action = sys.argv[1]
+
+    if action in _alias.keys():
+        action = _alias[action]
 
     if action in _actions:
         start = time.time()
@@ -58,7 +63,7 @@ def snapshot():
     if not os.path.exists(snapshot_dir):
         os.makedirs(snapshot_dir)
 
-    print('Output dir: ' + dir)
+    #print('Output dir: ' + dir)
     print('Snapshot: ' + snapshot_dir)
 
     database = config['database']['database']
@@ -66,7 +71,7 @@ def snapshot():
             '--skip-column-names',
             '-e"SELECT table_name FROM information_schema.tables WHERE table_schema = \'' + database + '\'"'
         ],
-        callback=lambda out, err: list(filter(None, out.decode().split('\r\n'))),
+        callback=lambda out, err: list(filter(lambda x: x is not None, out.decode().split('\r\n'))),
         bin=config['options']['mysql-bin']
     )
 
@@ -115,7 +120,7 @@ def restore():
     print('DONE')
 
 
-def list():
+def ls():
     dir = config['options']['output-dir'] or os.path.join(os.getcwd(), 'dumps')
 
     print(' ')
@@ -189,7 +194,6 @@ def run_mysql(args, bin=None, callback=None):
 
     p = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
-
 
     if callback is not None:
         return callback(out, err)
