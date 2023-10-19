@@ -2,9 +2,15 @@
 
 Dump and restore database quickly with a single command.
 
+## Requirements
+
+- python >=3.9
+- mysql.exe
+- mysqldump.exe
+
 ## Config
 
-Set a `config` file with database credentials in your current directory
+Set a `.mqd.config` file with database credentials in your current directory
 
 ```ini
 [database]
