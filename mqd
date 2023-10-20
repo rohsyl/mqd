@@ -76,7 +76,7 @@ def snapshot():
     )
 
     # remove skipped tables
-    skipped_tables = config['options']['skip-tables'].split(',') or []
+    skipped_tables = list(filter(None, config['options']['skip-tables'].split(','))) or []
     for t in skipped_tables:
         tables.remove(t)
 
