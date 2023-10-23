@@ -31,20 +31,20 @@ restore-sub-process-max=1
 
 ## Take a snapshot
 ```
-mqd snapshot NAME
+python mqd snapshot NAME
 ```
 
 ## Restore a snapshot
 ```
-mqd restore NAME
+python mqd restore NAME
 ```
 
 ## See availables snapshot
 ```
-mqd ls
+python mqd ls
 ```
 
 ## Delete a snapshot
 ```
-mqd delete NAME
+python mqd delete NAME
 ```
