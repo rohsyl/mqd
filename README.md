@@ -5,8 +5,8 @@ Dump and restore database quickly with a single command.
 ## Requirements
 
 - python >=3.9
-- mysql.exe
-- mysqldump.exe
+- mysql binary
+- mysqldump binary
 
 ## Config
 
