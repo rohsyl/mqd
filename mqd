@@ -71,7 +71,7 @@ def snapshot():
             '--skip-column-names',
             '-e"SELECT table_name FROM information_schema.tables WHERE table_schema = \'' + database + '\'"'
         ],
-        callback=lambda out, err: list(filter(None, out.decode().split('\r\n'))),
+        callback=lambda out, err: list(filter(None, out.decode().splitlines())),
         bin=config['options']['mysql-bin']
     )
 
